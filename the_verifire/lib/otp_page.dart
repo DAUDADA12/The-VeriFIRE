@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_home_page.dart';
+import 'user_storage.dart'; // local storage if needed
 
 class OTPPage extends StatefulWidget {
-  // 1. Accept verificationId
   final String verificationId;
-  const OTPPage({super.key, required this.verificationId});
+  final Map<String, dynamic> userData;
+
+  const OTPPage({
+    super.key,
+    required this.verificationId,
+    required this.userData,
+  });
 
   @override
   State<OTPPage> createState() => _OTPPageState();
@@ -27,9 +34,17 @@ class _OTPPageState extends State<OTPPage> {
 
   @override
   void dispose() {
-    for (var ctrl in _controllers) ctrl.dispose();
-    for (var node in _focusNodes) node.dispose();
+    for (var c in _controllers) c.dispose();
+    for (var f in _focusNodes) f.dispose();
     super.dispose();
+  }
+
+  void _onOtpChange(String value, int index) {
+    if (value.length == 1 && index < otpLength - 1) {
+      _focusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      _focusNodes[index - 1].requestFocus();
+    }
   }
 
   Future<void> _verifyOTP() async {
@@ -45,28 +60,32 @@ class _OTPPageState extends State<OTPPage> {
     setState(() => loading = true);
 
     try {
-      // Create a PhoneAuthCredential with the verificationId and OTP
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: widget.verificationId, // Use the received verificationId
+        verificationId: widget.verificationId,
         smsCode: otp,
       );
 
-      // Sign the user in with the credential
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       setState(() => loading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login Successful!")),
-      );
-      
-      // Clear the navigation stack and go to the start (or a new home screen)
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // OPTIONAL — Save user locally
+      await UserStorage.saveUserData(widget.userData);
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Verification Successful!")),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserHomePage(userData: widget.userData),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
       setState(() => loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "OTP verification failed.")),
+        SnackBar(content: Text(e.message ?? "Invalid OTP")),
       );
     } catch (e) {
       setState(() => loading = false);
@@ -76,132 +95,84 @@ class _OTPPageState extends State<OTPPage> {
     }
   }
 
+  Widget _buildOtpField(int index) {
+    return Container(
+      width: 50,
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
+        ),
+        decoration: const InputDecoration(
+          counterText: "",
+          border: InputBorder.none,
+        ),
+        onChanged: (value) => _onOtpChange(value, index),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-
-    // REMOVED MaterialApp wrapper here
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 209, 125),
       appBar: AppBar(
+        title: const Text("Verify OTP"),
         backgroundColor: const Color.fromARGB(255, 255, 209, 125),
         foregroundColor: Colors.black,
         elevation: 0,
-        leading: BackButton(
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          reverse: true,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Top content
-              Column(
-                children: [
-                  const SizedBox(height: 20),
-                  RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      text: 'OTP Login',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: screenWidth * 0.15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
+              const SizedBox(height: 50),
+              const Text(
+                "Enter the 6-digit code sent to your mobile number.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, color: Colors.black87),
+              ),
+              const SizedBox(height: 40),
 
-                  // OTP boxes (rounded corners)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(otpLength, (index) {
-                      return SizedBox(
-                        width: 50,
-                        height: 50,
-                        child: TextField(
-                          controller: _controllers[index],
-                          focusNode: _focusNodes[index],
-                          textAlign: TextAlign.center,
-                          keyboardType: TextInputType.number,
-                          maxLength: 1,
-                          style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
-                          decoration: InputDecoration(
-                            counterText: "",
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.0),
-                              borderSide: const BorderSide(color: Colors.white),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.0),
-                              borderSide: const BorderSide(color: Colors.white),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.0),
-                              borderSide: const BorderSide(
-                                  color: Colors.orange, width: 2),
-                            ),
-                          ),
-                          onChanged: (value) {
-                            if (value.isNotEmpty && index < otpLength - 1) {
-                              _focusNodes[index + 1].requestFocus();
-                            }
-                            if (value.isEmpty && index > 0) {
-                              _focusNodes[index - 1].requestFocus();
-                            }
-                          },
-                        ),
-                      );
-                    }),
-                  ),
-                  
-                  // Removed the redundant "Send OTP" button area
-                  const SizedBox(height: 20),
-                  
-                  // Resend button (needs implementation for resending OTP)
-                  TextButton(
-                    onPressed: loading ? null : () {
-                      // TODO: Implement OTP resend logic here
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Resend OTP functionality not yet implemented.")),
-                      );
-                    }, 
-                    child: const Text(
-                      "Resend OTP", 
-                      style: TextStyle(color: Colors.black54)
-                    )
-                  )
-
-                ],
+              /// OTP FIELDS
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children:
+                    List.generate(otpLength, (index) => _buildOtpField(index)),
               ),
 
-              // Bottom verify button
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20, top: 30),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : _verifyOTP,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.0), // rounded button
-                      ),
+              const SizedBox(height: 40),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: loading ? null : _verifyOTP,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'Verify OTP',
-                            style: TextStyle(fontSize: 18, color: Colors.white),
-                          ),
                   ),
+                  child: loading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Verify OTP',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        ),
                 ),
               ),
             ],

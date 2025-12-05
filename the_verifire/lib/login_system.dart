@@ -2,6 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'data_input.dart';
 
+// 🛑 NEW: Widget to preload the asset image
+class PreloadLoginSystem extends StatelessWidget {
+  const PreloadLoginSystem({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // We use a FutureBuilder to check if the image is ready
+    return FutureBuilder(
+      future: _preloadAssets(context),
+      builder: (context, snapshot) {
+        // If snapshot is not done (loading), show a simple colored container
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            backgroundColor: Color.fromARGB(255, 255, 209, 125),
+            body: Center(
+              child: CircularProgressIndicator(color: Colors.orange),
+            ),
+          );
+        }
+        // If ready, show the actual LoginSystem
+        return const LoginSystem();
+      },
+    );
+  }
+
+  // Function to initiate image caching
+  Future<void> _preloadAssets(BuildContext context) async {
+    // Pre-cache the image asset so it's instantly available when LoginSystem builds
+    await precacheImage(
+      const AssetImage('lib/images/VeriFIRE_logo.png'),
+      context,
+    );
+  }
+}
+
+
 class LoginSystem extends StatelessWidget {
   const LoginSystem({super.key});
 
@@ -9,12 +45,10 @@ class LoginSystem extends StatelessWidget {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
 
-    // REMOVED MaterialApp wrapper here
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 209, 125),
       appBar: AppBar(
-        // Removed the leading CloseButton and SystemNavigator.pop() call.
-        // The AppBar is now clean, allowing the app to stay open.
+        // Removed leading CloseButton and SystemNavigator.pop() call.
         backgroundColor: const Color.fromARGB(255, 255, 209, 125),
       ),
       body: SafeArea(
@@ -68,7 +102,7 @@ class LoginSystem extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                // Centered Image
+                // Centered Image (now pre-cached)
                 Image.asset(
                   'lib/images/VeriFIRE_logo.png',
                   width: screenWidth * 0.8,

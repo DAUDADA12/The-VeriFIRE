@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'login_system.dart';
+import 'login_system.dart'; // We import PreloadLoginSystem via this import
 import 'firebase_options.dart';
 
 void main() async {
-  // 🛑 FIX 1: MUST be the first line in main()
+  // 🛑 FIX 1: MUST be the first line in main() for async initialization
   WidgetsFlutterBinding.ensureInitialized(); 
+  
+  // Initialize Firebase (heavy operation)
   await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-);
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const MyApp());
 }
-
-// ... rest of your MyApp widget
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -23,7 +23,9 @@ class MyApp extends StatelessWidget {
     // Top-level MaterialApp
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: LoginSystem(),
+      
+      // 🛑 CHANGE: Start with PreloadLoginSystem to handle asset loading gracefully
+      home: PreloadLoginSystem(),
     );
   }
 }
